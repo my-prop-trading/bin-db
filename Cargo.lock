@@ -93,7 +93,6 @@ dependencies = [
  "encryption",
  "futures-core",
  "md5",
- "once_cell",
  "prost",
  "rand",
  "rust-embed",

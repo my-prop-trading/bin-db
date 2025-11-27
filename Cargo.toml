@@ -16,7 +16,6 @@ prost = "*"
 rust-embed = { version = "*", features = ["include-exclude"] }
 csv = "1.1"
 md5 = "*"
-once_cell = "*"
 tokio = { version = "*", features = ["full"] }
 serde = "*"
 serde_json = "*"

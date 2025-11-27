@@ -3,16 +3,13 @@ use csv::ReaderBuilder;
 use serde::Deserialize;
 use std::error::Error;
 use std::collections::HashMap;
-use once_cell::sync::OnceCell;
-
-static DATA_DICTIONARY: OnceCell<HashMap<String, BinRecord>> = OnceCell::new();
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 #[include = "bin-list-data.csv"]
 struct Asset;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Eq, Clone)]
 struct BinRecord {
     #[serde(rename = "BIN")]
     bin: String,
@@ -26,6 +23,27 @@ struct BinRecord {
     iso_code_3: String,
     #[serde(rename = "isoCode2")]
     iso_code_2: String,
+}
+
+impl PartialEq for BinRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.bin == other.bin && self.iso_code_2 == other.iso_code_2 &&
+        self.iso_code_3 == other.iso_code_3 && self.brand == other.brand &&
+        self.card_type == other.card_type && self.country_name == other.country_name
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct GeoList {
+    geos: HashMap<String, BinRecord>,
+}
+
+impl GeoList {
+    pub fn new() -> Self {
+        GeoList {
+            geos: init_data().expect("Failed to initialize GeoList data."),
+        }
+    }
 }
 
 fn init_data() -> Result<HashMap<String, BinRecord>, Box<dyn Error>> {
@@ -48,7 +66,7 @@ fn init_data() -> Result<HashMap<String, BinRecord>, Box<dyn Error>> {
 }
 
 pub fn lookup_bin(bins: Vec<String>) -> Result<Vec<String>, Box<dyn Error>> {
-    let dictionary = DATA_DICTIONARY.get_or_try_init(init_data)?;
+    let dictionary = GeoList::new().geos;
 
     let mut results = Vec::new();
 
@@ -73,7 +91,7 @@ mod tests {
 
     #[test]
     fn test_dictionary_initialization() {
-        let result = DATA_DICTIONARY.get_or_try_init(init_data);
+        let result = init_data();
 
         assert!(result.is_ok(), "Dictionary initialization failed: {:?}", result.err());
         assert!(!result.unwrap().is_empty(), "Dictionary initialized but is empty.");
@@ -81,8 +99,6 @@ mod tests {
 
     #[test]
     fn test_successful_batch_lookup() -> Result<(), Box<dyn Error>> {
-        DATA_DICTIONARY.get_or_try_init(init_data).ok(); 
-
         let mock_bins = vec!["123456".to_string(), "987654".to_string()]; 
         
         let found_codes = lookup_bin(mock_bins)?;
