@@ -1,0 +1,31 @@
+[package]
+name = "bin-db"
+version = "1.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+encryption = { tag = "0.1.2", git = "https://github.com/my-prop-trading/encryption.git" }
+
+
+tonic = { version = "*"}
+tonic-prost = "*"
+prost = "*"
+
+rust-embed = { version = "*", features = ["include-exclude"] }
+csv = "1.1"
+md5 = "*"
+once_cell = "*"
+tokio = { version = "*", features = ["full"] }
+serde = "*"
+serde_json = "*"
+serde_derive = "*"
+uuid = { version = "*", features = ["v4"] }
+async-trait = "*"
+futures-core = "*"
+rand = "*"
+url = "*"
+
+[build-dependencies]
+ci-utils = { git = "https://github.com/MyJetTools/ci-utils.git", tag = "0.1.3" }
