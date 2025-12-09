@@ -1,8 +1,8 @@
-use rust_embed::RustEmbed;
 use csv::ReaderBuilder;
+use rust_embed::RustEmbed;
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::collections::HashMap;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -27,88 +27,93 @@ struct BinRecord {
 
 impl PartialEq for BinRecord {
     fn eq(&self, other: &Self) -> bool {
-        self.bin == other.bin && self.iso_code_2 == other.iso_code_2 &&
-        self.iso_code_3 == other.iso_code_3 && self.brand == other.brand &&
-        self.card_type == other.card_type && self.country_name == other.country_name
+        self.bin == other.bin
+            && self.iso_code_2 == other.iso_code_2
+            && self.iso_code_3 == other.iso_code_3
+            && self.brand == other.brand
+            && self.card_type == other.card_type
+            && self.country_name == other.country_name
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct GeoList {
-    geos: HashMap<String, BinRecord>,
+pub struct BinDb {
+    record_by_bin: HashMap<String, BinRecord>,
 }
 
-impl GeoList {
+impl BinDb {
     pub fn new() -> Self {
-        GeoList {
-            geos: init_data().expect("Failed to initialize GeoList data."),
+        BinDb {
+            record_by_bin: read_csv().expect("Failed to initialize GeoList data."),
         }
+    }
+
+    pub fn get_iso2_codes(&self, bins: &[String]) -> Result<HashSet<String>, Box<dyn Error>> {
+        let mut countries = HashSet::with_capacity(bins.len());
+
+        for bin in bins {
+            if let Some(record) = self.record_by_bin.get(bin) {
+                countries.insert(record.iso_code_2.clone());
+            }
+        }
+
+        Ok(countries)
     }
 }
 
-fn init_data() -> Result<HashMap<String, BinRecord>, Box<dyn Error>> {
+fn read_csv() -> Result<HashMap<String, BinRecord>, Box<dyn Error>> {
     let bin_list = Asset::get("bin-list-data.csv")
         .ok_or_else(|| Box::<dyn Error>::from("'bin-list-data.csv' not found in assets."))?;
     let content = std::str::from_utf8(bin_list.data.as_ref())
         .map_err(|_| "Embedded file is not valid UTF-8.")?;
     let mut rdr = ReaderBuilder::new()
-        .has_headers(true) 
+        .has_headers(true)
         .from_reader(content.as_bytes());
     let mut data_map: HashMap<String, BinRecord> = HashMap::new();
 
     for result in rdr.deserialize() {
         let record: BinRecord = result?;
-        let key = generate_hash(&record.bin); 
-        data_map.insert(key, record);
+        data_map.insert(record.bin.clone(), record);
     }
-    
-    Ok(data_map) 
-}
 
-pub fn lookup_bin(bins: Vec<String>) -> Result<Vec<String>, Box<dyn Error>> {
-    let dictionary = GeoList::new().geos;
-
-    let mut results = Vec::new();
-
-    for bin in bins {
-        let hash_key = generate_hash(&bin);
-
-        if let Some(record) = dictionary.get(&hash_key) {
-            results.push(record.iso_code_2.clone());
-        }
-    }
-    
-    Ok(results)
-}
-
-pub fn generate_hash(src: &str) -> String {
-    format!("{:x}", md5::compute(src.as_bytes()))
+    Ok(data_map)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*; 
+    use super::*;
 
     #[test]
     fn test_dictionary_initialization() {
-        let result = init_data();
+        let result = read_csv();
 
-        assert!(result.is_ok(), "Dictionary initialization failed: {:?}", result.err());
-        assert!(!result.unwrap().is_empty(), "Dictionary initialized but is empty.");
+        assert!(
+            result.is_ok(),
+            "Dictionary initialization failed: {:?}",
+            result.err()
+        );
+        assert!(
+            !result.unwrap().is_empty(),
+            "Dictionary initialized but is empty."
+        );
     }
 
     #[test]
     fn test_successful_batch_lookup() -> Result<(), Box<dyn Error>> {
-        let mock_bins = vec!["123456".to_string(), "987654".to_string()]; 
-        
-        let found_codes = lookup_bin(mock_bins)?;
+        let db = BinDb::new();
+        let mock_bins = vec!["123456".to_string(), "987654".to_string()];
 
-        assert!(found_codes.is_empty() || found_codes.len() <= 2, "Batch lookup returned an unexpected number of results.");
-        
+        let found_codes = db.get_iso2_codes(&mock_bins)?;
+
+        assert!(
+            found_codes.is_empty() || found_codes.len() <= 2,
+            "Batch lookup returned an unexpected number of results."
+        );
+
         for code in &found_codes {
             assert!(!code.is_empty(), "Found code should not be empty.");
         }
-        
+
         Ok(())
     }
 }
