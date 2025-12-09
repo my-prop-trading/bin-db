@@ -48,16 +48,15 @@ impl BinDb {
         }
     }
 
-    pub fn get_iso2_codes(&self, bins: &[String]) -> Result<HashSet<String>, Box<dyn Error>> {
-        let mut countries = HashSet::with_capacity(bins.len());
-
-        for bin in bins {
-            if let Some(record) = self.record_by_bin.get(bin) {
-                countries.insert(record.iso_code_2.clone());
-            }
-        }
-
-        Ok(countries)
+    pub fn get_iso2_codes<I>(&self, bins: I) -> HashSet<&str>
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+    {
+        bins.into_iter()
+            .filter_map(|b| self.record_by_bin.get(b.as_ref()))
+            .map(|rec| rec.iso_code_2.as_str())
+            .collect()
     }
 }
 
@@ -103,7 +102,7 @@ mod tests {
         let db = BinDb::new();
         let mock_bins = vec!["123456".to_string(), "987654".to_string()];
 
-        let found_codes = db.get_iso2_codes(&mock_bins)?;
+        let found_codes = db.get_iso2_codes(mock_bins);
 
         assert!(
             found_codes.is_empty() || found_codes.len() <= 2,
