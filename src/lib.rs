@@ -61,21 +61,20 @@ impl BinDb {
 }
 
 fn read_csv() -> Result<HashMap<String, BinRecord>, Box<dyn Error>> {
-    let bin_list = Asset::get("bin-list-data.csv")
-        .ok_or_else(|| Box::<dyn Error>::from("'bin-list-data.csv' not found in assets."))?;
+    let bin_list = Asset::get("bin-list-data.csv").expect("bin-list-data.csv must exist");
     let content = std::str::from_utf8(bin_list.data.as_ref())
         .map_err(|_| "Embedded file is not valid UTF-8.")?;
     let mut rdr = ReaderBuilder::new()
         .has_headers(true)
         .from_reader(content.as_bytes());
-    let mut data_map: HashMap<String, BinRecord> = HashMap::new();
+    let mut record_by_bin = HashMap::with_capacity(375_000);
 
     for result in rdr.deserialize() {
         let record: BinRecord = result?;
-        data_map.insert(record.bin.clone(), record);
+        record_by_bin.insert(record.bin.clone(), record);
     }
 
-    Ok(data_map)
+    Ok(record_by_bin)
 }
 
 #[cfg(test)]
